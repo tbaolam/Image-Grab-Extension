@@ -12,6 +12,6 @@
     "action": {
         "default_popup": "popup.html"
     },
-    "permissions": [],
+    "permissions": ["scripting", "activeTab"],
     "background":{}
 }
