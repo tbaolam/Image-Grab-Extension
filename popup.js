@@ -1,20 +1,32 @@
 const grabBtn = document.getElementById("grabBtn");
 grabBtn.addEventListener("click",() => {    
-    chrome.tabs.query({active: true}, (tabs) => {
-        const tab = tabs[0];
+    // Get active browser tab
+    chrome.tabs.query({active: true}, function(tabs) {
+        var tab = tabs[0];
         if (tab) {
-            chrome.scripting.executeScript(
-                {
-                    target: {tableId: tab.id, allFrames: true},
-                    func: grabImages
-                },
-                onResult
-            )
+            execScript(tab);
         } else {
             alert("There are no active tabs")
         }
     })
 })
+
+/**
+ * Execute a grabImages() function on a web page,
+ * opened on specified tab and on all frames of this page
+ * @param tab - A tab to execute script on
+ */
+function execScript(tab) {
+    // Execute a function on a page of the current browser tab
+    // and process the result of execution
+    chrome.scripting.executeScript(
+        {
+            target:{tabId: tab.id, allFrames: true},
+            func:grabImages
+        },
+        onResult
+    )
+}
 
 /**
  * Executed on a remote browser page to grab all images
@@ -37,17 +49,20 @@ function grabImages() {
  * of grabImage() function execution results
  */
 function onResult(frames) {
-    // If script execution failed on the remote end 
+    // If script execution failed on remote end 
     // and could not return results
     if (!frames || !frames.length) { 
         alert("Could not retrieve images from specified page");
         return;
     }
-    // Combine arrays of the image URLs from 
+    // Combine arrays of image URLs from 
     // each frame to a single array
     const imageUrls = frames.map(frame=>frame.result)
                             .reduce((r1,r2)=>r1.concat(r2));
-    // Copy to clipboard a string of image URLs, delimited by 
+    // Open a page with a list of images and send imageUrls to it
+    openImagesPage(imageUrls)
+
+    /*// Copy to clipboard a string of image URLs, delimited by 
     // carriage return symbol  
     window.navigator.clipboard
           .writeText(imageUrls.join("\n"))
@@ -56,6 +71,26 @@ function onResult(frames) {
              // is copied to the clipboard
              window.close();
           });
+          */
 }
-
-
+/**
+ * Opens a page with a list of URLs and UI to select and
+ * download them on a new browser tab and send an
+ * array of image URLs to this page
+ * 
+ * @param {*} urls - Array of Iamge URLs to send
+ */
+function openImagesPage(urls) {
+    // TODO: 
+    // * Open a new tab with a HTML page to display an UI    
+    chrome.tabs.create(
+        {"url": "page.html", selected: false},(tab) => {        
+            // * Send `urls` array to this page
+            setTimeout(()=>{
+                chrome.tabs.sendMessage(tab.id,urls,(resp) => {
+                    chrome.tabs.update(tab.id,{active: true});
+                });                            
+            },100);
+        }
+    );
+}
